@@ -10,7 +10,6 @@ Use redis as pubsub using a simple eventemitter.
 var redis = require('redis-eventemitter');
 
 var pubsub = redis({
-	prefix: 'production:',
 	url: 'redis://myuser:mypass@localhost:6379/'
 	// port: 6379,
 	// host: '127.0.0.1',
@@ -34,24 +33,24 @@ pubsub.emit('myservice:newuser', { id:'a1b2c3', email:'foo@example.com' });
 
 ## API
 
-### .emit(channel, messages...) [publish]
+### .emit(channel, message[, callback]) [publish]
 
 ``` js
 var redis = require('redis-eventemitter');
-var pubsub = redis({ prefix: 'production:', host: 'localhost', port: 6379 });
+var pubsub = redis({ host: 'localhost', port: 6379 });
 
-pubsub.emit('myservice:newuser', { id:'a1b2c3' });
+pubsub.emit('myservice:newuser', JSON.stringify({ id:'a1b2c3' }));
 ```
 
-### .on(pattern, function(channel, messages...) { ... }) [subscribe]
+### .on(pattern, function(channel, message) { ... }) [subscribe]
 
 ``` js
 var redis = require('redis-eventemitter');
-var pubsub = redis({ scope: 'production:', host: 'localhost', port: 6379 });
+var pubsub = redis({ host: 'localhost', port: 6379 });
 
 pubsub.on('*:newuser', function(channel, message) {
 	console.log(channel); // myservice:newuser
-	console.log(message); // { id:'a1b2c3' }
+	console.log(JSON.parse(message)); // { id:'a1b2c3' }
 });
 ```
 
@@ -86,12 +85,6 @@ Url for the redis server.
 ### auth_pass
 
 Password for the redis server. Defaults to not being set.
-
-### prefix
-
-A prefix that is added to the channel name, when publishing events to the redis pubsub. Useful for separating services or environments, e.g. `production`, `development`, and `staging`.
-
-It is also removed when the listeners is invoked.
 
 ### pub
 
