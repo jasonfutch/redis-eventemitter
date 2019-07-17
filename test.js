@@ -47,14 +47,14 @@ hub.on('testCallbackAndArgs', expectCall('testCallbackAndArgs', function(channel
 var testNoMessage = expectCall('testNoMessage', function () { })
 var testCallbackInsteadOfArgs = expectCall('testCallbackInsteadOfArgs', function () { })
 var testCallbackNotAFunction = expectCall('testCallbackNotAFunction', function () { })
-hub.on('error', err => {
+hub.on('error', function (err) {
 	if (err.message === 'Expected both a channel and a message') return testNoMessage()
 	if (err.message === 'Expected a message, but was given a function') return testCallbackInsteadOfArgs()
 	if (err.message === 'Callback is not a function') return testCallbackNotAFunction()
 })
 
 // Wait a second before emitting as there's a small race condition where the listener might not have been registered yet
-setTimeout(() => {
+setTimeout(function () {
 	hub.emit('testSimple', 'ok');
 	hub.emit('foo:testGlobBefore', 'ok');
 	hub.emit('testGlobAfter:foo', 'ok');
