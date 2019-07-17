@@ -4,11 +4,11 @@ var assert = require('assert');
 var testsMissing = 0;
 var expectCall = function(name, f) {
 	testsMissing++;
-	console.log(`Expect ${name} to be called. Outstanding tests: ${testsMissing}`)
+	console.log('Expect ' + name + ' to be called. Outstanding tests: ' + testsMissing)
 	var count = 1;
 	return function() {
 		testsMissing--;
-		console.log(`${name} was called. Outstanding tests: ${testsMissing}`)
+		console.log(name + ' was called. Outstanding tests: ' + testsMissing)
 		assert(count-- >= 0);
 		f.apply(null, arguments);
 	};
