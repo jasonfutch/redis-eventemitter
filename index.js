@@ -18,7 +18,6 @@ module.exports = function(options) {
 		sub = redis.createClient(options);
 	}
 
-	var prefix = options.prefix || '';
 	var that = new events.EventEmitter();
 	var emit = events.EventEmitter.prototype.emit;
 	var removeListener = events.EventEmitter.prototype.removeListener;
@@ -41,8 +40,6 @@ module.exports = function(options) {
 	sub.on('error', onerror);
 	pub.on('error', onerror);
 	sub.on('pmessage', function(pattern, channel, messages) {
-		pattern = pattern.slice(prefix.length);
-		channel = channel.slice(prefix.length);
 		try {
 			emit.apply(that, [pattern, channel].concat(JSON.parse(messages)));
 		}
@@ -54,7 +51,6 @@ module.exports = function(options) {
 	that.on('newListener', function(pattern, listener) {
 		if (pattern === 'error') return;
 
-		pattern = prefix + pattern;
 		if (that.listeners(pattern).length) return;
 		sub.psubscribe(pattern, callback());
 	});
@@ -72,14 +68,14 @@ module.exports = function(options) {
 			}
 		}
 
-		pub.publish(prefix + channel, JSON.stringify(messages), cb);
+		pub.publish(channel, JSON.stringify(messages), cb);
 	};
 	that.removeListener = function(pattern, listener) {
 		if (pattern in {newListener:1, error:1}) return removeListener.apply(that, arguments);
 
 		removeListener.apply(that, arguments);
 		if (that.listeners(pattern).length) return that;
-		sub.punsubscribe(prefix+pattern, callback());
+		sub.punsubscribe(pattern, callback());
 		return that;
 	};
 	that.removeAllListeners = function(pattern) {
