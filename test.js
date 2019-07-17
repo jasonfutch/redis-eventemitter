@@ -2,105 +2,75 @@ var redis = require('./index');
 var assert = require('assert');
 
 var testsMissing = 0;
-var expectCall = function(f) {
+var expectCall = function(name, f) {
 	testsMissing++;
-
+	console.log(`Expect ${name} to be called. Outstanding tests: ${testsMissing}`)
 	var count = 1;
 	return function() {
 		testsMissing--;
+		console.log(`${name} was called. Outstanding tests: ${testsMissing}`)
 		assert(count-- >= 0);
 		f.apply(null, arguments);
 	};
 };
-var hub = redis();
-var hubPrefix = redis({
-	prefix: 'foo:'
+var hub = redis({
+	url: 'redis://localhost:6379/cache/0'
 });
 
-
 /* Standard tests */
-hub.on('testSimple', expectCall(function(channel, msg) {
+hub.on('testSimple', expectCall('testSimple', function(channel, msg) {
 	assert(channel == 'testSimple');
 	assert(msg === 'ok');
 }));
-hub.on('*:testGlobBefore', expectCall(function(channel, msg) {
+hub.on('*:testGlobBefore', expectCall('testGlobBefore', function(channel, msg) {
 	assert(channel === 'foo:testGlobBefore');
 }));
-hub.on('testGlobAfter:*', expectCall(function(channel, msg) {
+hub.on('testGlobAfter:*', expectCall('testGlobAfter', function(channel, msg) {
 	assert(channel === 'testGlobAfter:foo');
 }));
-hub.once('testOnce', expectCall(function() { }));
-hub.on('testSeveralArgs', expectCall(function(channel, msg1, msg2) {
-	assert(msg1 === 'okA');
-	assert(msg2 === 'okB');
+hub.once('testOnce', expectCall('testOnce', function() { }));
+hub.on('testJson', expectCall('testJson', function(channel, json) {
+	assert(JSON.parse(json).msg === 'ok');
 }));
-hub.on('testJson', expectCall(function(channel, json) {
-	assert(json.msg === 'ok');
-}));
-hub.on('testTwoListeners', expectCall(function() { }));
-hub.on('testTwoListeners', expectCall(function() { }));
+hub.on('testTwoListeners', expectCall('testTwoListeners', function() { }));
+hub.on('testTwoListeners', expectCall('testTwoListeners', function() { }));
 
-
-/* Test prefix */
-hub.on('*testPrefixed', expectCall(function(channel, msg) {
-	assert(channel === 'foo:testPrefixed');
-}));
-hubPrefix.on('testPrefixed', expectCall(function(channel, msg) {
-	assert(channel === 'testPrefixed');
-}));
 
 /* Test callback */
-hub.on('testCallbackNoArgs', expectCall(function(channel, msg) {
-	assert(channel === 'testCallbackNoArgs');
-	assert(!msg);
-}));
-hub.on('testCallbackAndArgs', expectCall(function(channel, msg) {
+hub.on('testCallbackAndArgs', expectCall('testCallbackAndArgs', function(channel, msg) {
 	assert(channel === 'testCallbackAndArgs');
 	assert(msg === 'testArg');
 }));
 
-/* Test error handling */
-hub.on('anerror', expectCall(function() {
-	throw new Error('an error');
-}));
-process.once('uncaughtException', function(err) {
-	if (err.message !== 'an error') return console.log(err.message, err.stack);
-	assert(err.message === 'an error');
-});
 
+/* Test errors*/
+var testNoMessage = expectCall('testNoMessage', function () { })
+var testCallbackInsteadOfArgs = expectCall('testCallbackInsteadOfArgs', function () { })
+var testCallbackNotAFunction = expectCall('testCallbackNotAFunction', function () { })
+hub.on('error', err => {
+	if (err.message === 'Expected both a channel and a message') return testNoMessage()
+	if (err.message === 'Expected a message, but was given a function') return testCallbackInsteadOfArgs()
+	if (err.message === 'Callback is not a function') return testCallbackNotAFunction()
+})
 
-hub.flush(function() {
+// Wait a second before emitting as there's a small race condition where the listener might not have been registered yet
+setTimeout(() => {
 	hub.emit('testSimple', 'ok');
 	hub.emit('foo:testGlobBefore', 'ok');
 	hub.emit('testGlobAfter:foo', 'ok');
 	hub.emit('testOnce', 'ok');
 	hub.emit('testOnce', 'ok');
-	hub.emit('testSeveralArgs', 'okA', 'okB')
-	hub.emit('testJson', {msg:'ok'});
-	hub.emit('testTwoListeners');
-
-	hubPrefix.emit('testPrefixed', 'ok');
-
-	hub.emit('anerror');
-
-	hub.emit('testCallbackNoArgs', expectCall(function(err, num) {
-		assert(!err);
-		assert(num === 1);
-	}));
-	hub.emit('testCallbackAndArgs', 'testArg', expectCall(function(err, num) {
-		assert(!err);
-		assert(num === 1);
-	}));
-	hub.emit('testCallbackNoSub', expectCall(function(err, num) {
-		assert(!err);
-		assert(num === 0);
-	}));
-});
+	hub.emit('testJson', JSON.stringify({ msg: 'ok' }));
+	hub.emit('testTwoListeners', 'ok');
+	hub.emit('testCallbackAndArgs', 'testArg', expectCall('testCallbackAndArgs', function () { }));
+	hub.emit('testNoMessage')
+	hub.emit('testCallbackInsteadOfArgs', function () { })
+	hub.emit('testCallbackNotAFunction', 'foo', 'bar')
+}, 1000)
 
 setTimeout(function() {
 	assert(!testsMissing);
 	hub.close();
-	hubPrefix.close();
 }, 2000);
 
 setTimeout(function() {

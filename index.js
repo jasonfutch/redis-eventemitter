@@ -22,17 +22,6 @@ module.exports = function(options) {
 	var emit = events.EventEmitter.prototype.emit;
 	var removeListener = events.EventEmitter.prototype.removeListener;
 
-	var pending = 0;
-	var queue = [];
-
-	var onflush = function() {
-		if (--pending) return;
-		while (queue.length) queue.shift()();
-	};
-	var callback = function() {
-		pending++;
-		return onflush;
-	};
 	var onerror = function(err) {
 		if (!that.listeners('error').length) return;
 		emit.apply(that, Array.prototype.concat.apply(['error'], arguments));
@@ -41,7 +30,7 @@ module.exports = function(options) {
 	pub.on('error', onerror);
 	sub.on('pmessage', function(pattern, channel, messages) {
 		try {
-			emit.apply(that, [pattern, channel].concat(JSON.parse(messages)));
+			emit.apply(that, [pattern, channel, messages]);
 		}
 		catch(err) {
 			process.nextTick(emit.bind(that, 'error', err));
@@ -52,30 +41,27 @@ module.exports = function(options) {
 		if (pattern === 'error') return;
 
 		if (that.listeners(pattern).length) return;
-		sub.psubscribe(pattern, callback());
+		sub.psubscribe(pattern);
 	});
-	that.emit = function(channel, messages) {
-		if (channel in {newListener:1, error:1}) return emit.apply(this, arguments);
+	that.emit = function(channel, message, cb) {
+		if (channel in { newListener: 1, error: 1 }) return emit.apply(this, arguments);
 
-		var cb = callback();
-		messages = Array.prototype.slice.call(arguments, 1);
-		if (typeof messages[messages.length - 1] === 'function') {
-			var onflush = callback();
-			var realCb = messages.pop();
-			cb = function() {
-				realCb.apply(null, arguments);
-				onflush();
-			}
-		}
+		var hasMessage = !!message
+		var isMessageAFunction = typeof message === 'function'
+		var isCallbackAFunction = typeof cb === 'undefined' || typeof cb === 'function'
 
-		pub.publish(channel, JSON.stringify(messages), cb);
+		if (!hasMessage) return onerror(new Error('Expected both a channel and a message'))
+		if (isMessageAFunction) return onerror(new Error('Expected a message, but was given a function'))
+		if (!isCallbackAFunction) return onerror(new Error('Callback is not a function'))
+
+		pub.publish(channel, message, cb);
 	};
 	that.removeListener = function(pattern, listener) {
 		if (pattern in {newListener:1, error:1}) return removeListener.apply(that, arguments);
 
 		removeListener.apply(that, arguments);
 		if (that.listeners(pattern).length) return that;
-		sub.punsubscribe(pattern, callback());
+		sub.punsubscribe(pattern);
 		return that;
 	};
 	that.removeAllListeners = function(pattern) {
@@ -89,11 +75,6 @@ module.exports = function(options) {
 		pub.unref();
 		sub.quit();
 		sub.unref();
-	};
-	that.flush = function(fn) {
-		if (!fn) return;
-		if (!pending) return process.nextTick(fn);
-		queue.push(fn);
 	};
 	that.pub = pub;
 	that.sub = sub;
