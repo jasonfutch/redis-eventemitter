@@ -1,4 +1,4 @@
-var redis = require('redis');
+var Redis = require('ioredis');
 var events = require('events');
 
 module.exports = function(options) {
@@ -12,10 +12,8 @@ module.exports = function(options) {
 	var sub = options.sub;
 
 	if (!options.pub) {
-		if (options.auth) options.auth_pass = options.auth;
-
-		pub = redis.createClient(options);
-		sub = redis.createClient(options);
+		pub = new Redis(options);
+		sub = new Redis(options);
 	}
 
 	var that = new events.EventEmitter();
@@ -43,18 +41,13 @@ module.exports = function(options) {
 		if (that.listeners(pattern).length) return;
 		sub.psubscribe(pattern);
 	});
-	that.emit = function(channel, message, cb) {
+	that.emit = function(channel, message) {
 		if (channel in { newListener: 1, error: 1 }) return emit.apply(this, arguments);
 
 		var hasMessage = !!message
-		var isMessageAFunction = typeof message === 'function'
-		var isCallbackAFunction = typeof cb === 'undefined' || typeof cb === 'function'
-
 		if (!hasMessage) return onerror(new Error('Expected both a channel and a message'))
-		if (isMessageAFunction) return onerror(new Error('Expected a message, but was given a function'))
-		if (!isCallbackAFunction) return onerror(new Error('Callback is not a function'))
 
-		pub.publish(channel, message, cb);
+		pub.publish(channel, message);
 	};
 	that.removeListener = function(pattern, listener) {
 		if (pattern in {newListener:1, error:1}) return removeListener.apply(that, arguments);
@@ -72,9 +65,7 @@ module.exports = function(options) {
 	};
 	that.close = function() {
 		pub.quit();
-		pub.unref();
 		sub.quit();
-		sub.unref();
 	};
 	that.pub = pub;
 	that.sub = sub;

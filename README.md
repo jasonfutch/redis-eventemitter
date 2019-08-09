@@ -1,25 +1,23 @@
 # redis-eventemitter [![build status](https://secure.travis-ci.org/freeall/redis-eventemitter.png)](http://travis-ci.org/freeall/redis-eventemitter)
 
-Use redis as pubsub using a simple eventemitter.
+Use redis as pubsub using a simple eventemitter. A thin layer on top of `ioredis`.
 
-	npm install redis-eventemitter
+`$ npm install redis-eventemitter`
 
 ## Usage
 
 ```js
 var redis = require('redis-eventemitter');
 
-var pubsub = redis({
-	url: 'redis://myuser:mypass@localhost:6379/'
-	// port: 6379,
-	// host: '127.0.0.1',
-	// auth_pass: 'mypassword'
-
-	// in case you want to control Redis clients
-	// creation you can specify pub/sub clients pair:
-	// pub: pubClient,
-	// sub: subClient
-});
+var pubsub = redis('redis://myuser:mypass@localhost:6379/')
+// var pubsub = redis({ // If you rediss (tls)
+// 	host: 'localhost',
+//   port: 6379,
+//   password: 'someadminpassword',
+//   tls: {
+//     ca: '-----BEGIN CERTIFICATE-----....',
+//   }
+// });
 
 // Listen for messages on the *:newuser channel
 pubsub.on('*:newuser', function(channel, user) {
@@ -70,26 +68,4 @@ Removes all listeners.
 
 ## Options
 
-### port
-
-Port for the redis server.
-
-### host
-
-Host for the redis server.
-
-### url
-
-Url for the redis server.
-
-### auth_pass
-
-Password for the redis server. Defaults to not being set.
-
-### pub
-
-Redis client instance used for `publish`.
-
-### sub
-
-Redis client instance used for `subscribe`.
+All options are sent directly to the module `ioredis`.

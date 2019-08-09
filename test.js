@@ -36,21 +36,10 @@ hub.on('testTwoListeners', expectCall('testTwoListeners', function() { }));
 hub.on('testTwoListeners', expectCall('testTwoListeners', function() { }));
 
 
-/* Test callback */
-hub.on('testCallbackAndArgs', expectCall('testCallbackAndArgs', function(channel, msg) {
-	assert(channel === 'testCallbackAndArgs');
-	assert(msg === 'testArg');
-}));
-
-
 /* Test errors*/
 var testNoMessage = expectCall('testNoMessage', function () { })
-var testCallbackInsteadOfArgs = expectCall('testCallbackInsteadOfArgs', function () { })
-var testCallbackNotAFunction = expectCall('testCallbackNotAFunction', function () { })
 hub.on('error', function (err) {
 	if (err.message === 'Expected both a channel and a message') return testNoMessage()
-	if (err.message === 'Expected a message, but was given a function') return testCallbackInsteadOfArgs()
-	if (err.message === 'Callback is not a function') return testCallbackNotAFunction()
 })
 
 // Wait a second before emitting as there's a small race condition where the listener might not have been registered yet
@@ -62,10 +51,7 @@ setTimeout(function () {
 	hub.emit('testOnce', 'ok');
 	hub.emit('testJson', JSON.stringify({ msg: 'ok' }));
 	hub.emit('testTwoListeners', 'ok');
-	hub.emit('testCallbackAndArgs', 'testArg', expectCall('testCallbackAndArgs', function () { }));
 	hub.emit('testNoMessage')
-	hub.emit('testCallbackInsteadOfArgs', function () { })
-	hub.emit('testCallbackNotAFunction', 'foo', 'bar')
 }, 1000)
 
 setTimeout(function() {
