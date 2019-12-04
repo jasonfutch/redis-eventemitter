@@ -4,8 +4,8 @@ var events = require('events');
 module.exports = function(options) {
 	options = options || {};
 
-	if (!(options.port && options.host) && !options.url) {
-		throw new Error('redis-eventemitter needs a url or port+host');
+	if (!(options.port && options.host) && !options.url && !(options.pub && options.sub)) {
+		throw new Error('redis-eventemitter needs a url or port+host or pub+sub');
 	}
 
 	var pub = options.pub;
